@@ -35,14 +35,13 @@ which require an initialization must be listed explicitly in the list.")
       (add-hook 'c++-mode-hook '(lambda ()
                                   ;; (c-toggle-auto-newline t)
                                 (linum-mode)))
-      (add-to-list 'company-c-headers-path-system "/usr/local/include/c++/4.9.2/")
+      ;; (add-to-list 'company-c-headers-path-system "/usr/local/include/c++/4.9.2/")
       )
     ))
 
 (defun sam-c++/init-srefactor ()
   (use-package srefactor
     :defer t
-    :if (not (version< emacs-version "24.4"))
     :init
     (progn
       (evil-leader/set-key-for-mode 'c-mode
