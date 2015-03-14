@@ -1,0 +1,3 @@
+[submodule "cedet/cedet"]
+	path = cedet/cedet
+	url = http://git.code.sf.net/p/cedet/git
