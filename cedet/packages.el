@@ -24,52 +24,52 @@ which require an initialization must be listed explicitly in the list.")
     :demand
     :commands (cedet-devel-load cedet-contrib-load)
     :load-path ("private/cedet/cedet" "private/cedet/cedet/contrib")
-    :config (use-package cedet-contrib-load
-              :demand)
+    :config (use-package cedet-contrib-load :demand)
     ))
 
 (defun cedet/init-semantic ()
   (use-package semantic
     ;; :defer t
     :commands semantic-mode
-    ;; :idle (progn
-    ;;         (semantic-mode 1)
-    ;;         (global-srecode-minor-mode 1)
-    ;;         (global-ede-mode t))
     :init
     (progn
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semanticdb-minor-mode)
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semantic-idle-scheduler-mode)
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semantic-idle-local-symbol-highlight-mode)
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semantic-idle-completions-mode)
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semantic-idle-summary-mode)
-      ;;   (add-to-list 'semantic-default-submodes
-      ;;                'global-semantic-stickyfunc-mode)
+      (add-hook 'c-mode-hook 'semantic-mode)
       (add-hook 'c++-mode-hook 'semantic-mode))
     :config
     (progn
+
+      (use-package ede)
       (use-package semantic/bovine/el)
       (use-package semantic/canned-configs)
+      (semantic-load-code-helpers-1)
       ;;(semantic-load-enable-gaudy-code-helpers)
       (setq semantic-default-submodes
             '(global-semantic-idle-scheduler-mode
               global-semanticdb-minor-mode
-              ;; global-semantic-idle-summary-mode
-              ;; global-semantic-mru-bookmark-mode
-              ;; global-cedet-m3-minor-mode
+              global-semantic-idle-summary-mode
+              global-semantic-mru-bookmark-mode
+              global-cedet-m3-minor-mode
               ;; global-semantic-decoration-mode
               global-semantic-stickyfunc-mode
-              ;; global-semantic-idle-completions-mode
+              global-semantic-idle-completions-mode
               ))
 
-      (semantic-mode 1)
+     (semantic-mode 1)
+     ;; Increase the delay before doing slow work to 2 minutes.
+     (setq semantic-idle-scheduler-work-idle-time 120)
+
+     ;; Increase the delay before activation
+     (setq semantic-idle-scheduler-idle-time 10)
+     ;; Don't reparse really big buffers.
+     (setq semantic-idle-scheduler-max-buffer-size 100000)
+     ;; Increase the delay before doing slow work to 2 minutes.
+     (setq semantic-idle-scheduler-work-idle-time 120)
+
+
       ;; This enables parsing of header files.
       (setq semantic-idle-work-update-headers-flag t)
+      (setq semantic-idle-work-parse-neighboring-files-flag t)
+
 
       (when (and (eq window-system 'x)
                  (locate-library "imenu"))
@@ -79,57 +79,106 @@ which require an initialization must be listed explicitly in the list.")
                         (imenu-add-to-menubar
                          semantic-load-imenu-string)
                       (error nil)))))
-      (setq semantic-idle-work-parse-neighboring-files-flag t)
 
-      (setq semantic-clang-binary "/usr/local/opt/ccache/libexec/clang++-3.5.1")
       (use-package semantic/ia)
       (use-package semantic/sb)
       (use-package semantic/bovine)
       (use-package semantic/bovine/c)
-      (use-package semantic/bovine/gcc)
+
+      ;; (semantic-gcc-setup "gcc-4.9")
+      ;;(use-package semantic/bovine/gcc)
       (use-package semantic/bovine/clang)
       (use-package semantic/decorate/include)
       (use-package semantic/lex-spp)
       (use-package eassist)
 
+      (setq semantic-clang-binary "/usr/local/opt/ccache/libexec/clang++-3.6")
+      (semantic-clang-activate)
+
+      (setq ede-locate-setup-options '(ede-locate-base))
+
       (use-package cedet-global)
+      (setq cedet-global-command "/usr/local/bin/global")
       (when (cedet-gnu-global-version-check t)
+       (add-to-list 'ede-locate-setup-options 'ede-locate-global)
         (semanticdb-enable-gnu-global-databases 'c-mode)
         (semanticdb-enable-gnu-global-databases 'c++-mode))
 
+      ;; cscope
+      (use-package cedet-cscope)
+     (when (cedet-cscope-version-check t)
+       (add-to-list 'ede-locate-setup-options 'ede-locate-cscope)
+       (semanticdb-enable-cscope-databases :noerror))
+
+      ;; ctags
       (setq semantic-ectags-program "/usr/local/bin/ctags")
-      (semanticdb-enable-cscope-databases :noerror)
       (ignore-errors
         (when (cedet-ectag-version-check t)
-          (semantic-load-enable-primary-ectags-support)
-          (semantic-load-enable-secondary-ectags-support)))
+          (semantic-load-enable-all-ectags-support)))
+
+      (use-package cedet-idutils)
+     (when (cedet-idutils-version-check t)
+       (add-to-list 'ede-locate-setup-options 'ede-locate-idutils))
 
       ;; SRecode
-      ;;(use-package srecode/compile)
-      ;;(global-srecode-minor-mode 1)
+      (setq srecode-map-save-file (concat spacemacs-cache-directory "srecode-map.el"))
+      (use-package srecode/compile)
+      ;; (global-srecode-minor-mode 1)
+      (add-hook 'c-mode-hook 'srecode-minor-mode)
+      (add-hook 'c++-mode-hook 'srecode-minor-mode)
 
-      (add-to-list
-       'semantic-lex-c-preprocessor-symbol-file
-       "/usr/local/lib/gcc/4.9/gcc/x86_64-apple-darwin14.0.0/4.9.2/include/stddef.h")
+     ;;throttle semanticdb
+     (setq-mode-local c-mode
+                      semanticdb-find-default-throttle
+                      '(project
+                        unloaded
+                        system
+                        recursive))
+
+     (setq-mode-local c++-mode
+                      semanticdb-find-default-throttle
+                      '(project
+                        unloaded
+                        system
+                        recursive))
+
+
+
+      (semantic-add-system-include "/usr/local/include/boost/" 'c++-mode)
       (semantic-add-system-include "/usr/local/include/")
       (semantic-add-system-include "/usr/include/")
+
+      ;;gcc
       (semantic-add-system-include "/usr/local/include/c++/4.9.2/")
       (add-to-list 'company-c-headers-path-system "/usr/local/include/c++/4.9.2/")
 
-      (global-ede-mode t)
+      ;; clang
+      ;; llvm 3.5.1
+      (semantic-add-system-include "/usr/local/Cellar/llvm/3.5.1/include/c++/v1")
+      (add-to-list 'semantic-lex-c-preprocessor-symbol-file
+       "/usr/local/Cellar/llvm/3.5.1/lib/clang/3.5.1/include/stddef.h")
+      (add-to-list 'company-c-headers-path-system "/usr/local/Cellar/llvm/3.5.1/include/c++/v1/")
+      ;;llvm 3.6
+      (semantic-add-system-include "/usr/local/opt/llvm36/lib/llvm-3.6/include/c++/v1")
+      (add-to-list 'company-c-headers-path-system "/usr/local/opt/llvm36/lib/llvm-3.6/include/c++/v1")
+      (add-to-list 'semantic-lex-c-preprocessor-symbol-file "/usr/local/Cellar/llvm36/3.6.0/lib/llvm-3.6/lib/clang/3.6.0/include/stddef.h")
+
+
+      ;; (global-ede-mode t)
       ;; (spacemacs|hide-lighter ede-dired-minor-mode)
       (ede-enable-generic-projects)
-      ;;(add-to-list 'company-backends 'company-semantic)
+      (add-to-list 'ede-locate-setup-options 'ede-locate-base)
 
-      (setq ;; use gdb-many-windows by default
-       gdb-many-windows t
+      ;; use gdb-many-windows by default
+      (setq gdb-many-windows t)
 
-       ;; Non-nil means display source file containing the main routine at startup
-       gdb-show-main t)
+      ;; Non-nil means display source file containing the main routine at startup
+      (setq gdb-show-main t)
 
       (setq compilation-disable-input t)
       (setq compilation-scroll-output t)
       (setq mode-compile-always-save-buffer-p t))
+      (setq semanticdb-default-save-directory (concat spacemacs-cache-directory "semanticdb/"))
     ))
 
 (defun cedet/init-function-args ()
@@ -212,24 +261,24 @@ which require an initialization must be listed explicitly in the list.")
       ;;                     (cppcm-reload-all))
       ;;               )))
 
-      (setq cppcm-get-executable-full-path-callback
-            (lambda (path type tgt-name)
-              ;; path is the supposed-to-be target's full path
-              ;; type is either add_executabe or add_library
-              ;; tgt-name is the target to built. The target's file extension is stripped
-              (message "cppcm-get-executable-full-path-callback called => %s %s %s" path type tgt-name)
-              (let ((dir (file-name-directory path))
-                    (file (file-name-nondirectory path)))
-                (cond
-                 ((string= type "add_executable")
-                  (setq path (concat dir "bin/" file)))
-                 ;; for add_library
-                 (t (setq path (concat dir "lib/" file)))
-                 ))
-              ;; return the new path
-              (message "cppcm-get-executable-full-path-callback called => path=%s" path)
-              path))
-      (setq cppcm-write-flymake-makefile nil)
+      ;; (setq cppcm-get-executable-full-path-callback
+      ;;       (lambda (path type tgt-name)
+      ;;         ;; path is the supposed-to-be target's full path
+      ;;         ;; type is either add_executabe or add_library
+      ;;         ;; tgt-name is the target to built. The target's file extension is stripped
+      ;;         (message "cppcm-get-executable-full-path-callback called => %s %s %s" path type tgt-name)
+      ;;         (let ((dir (file-name-directory path))
+      ;;               (file (file-name-nondirectory path)))
+      ;;           (cond
+      ;;            ((string= type "add_executable")
+      ;;             (setq path (concat dir "bin/" file)))
+      ;;            ;; for add_library
+      ;;            (t (setq path (concat dir "lib/" file)))
+      ;;            ))
+      ;;         ;; return the new path
+      ;;         (message "cppcm-get-executable-full-path-callback called => path=%s" path)
+      ;;         path))
+       (setq cppcm-write-flymake-makefile nil)
 
       ;; (setq cppcm-debug t)
       )
